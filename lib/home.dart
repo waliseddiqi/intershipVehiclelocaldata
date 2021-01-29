@@ -15,9 +15,10 @@ class Home extends StatefulWidget{
 
 class _HomeState extends State<Home> {
 BaseAPI api=new API();
-
+int random;
 File file;
 String _addressline="";
+bool _isloading=false;
   final picker = ImagePicker();
 final _formKey = GlobalKey<FormState>();
 String platenostring="";
@@ -35,10 +36,39 @@ void validForm(Size size){
   if(_isValidForm()){
    
       if(_addressline!=""&&file!=null){
-      
+   
+      Random randomnum = new Random();
+      random = randomnum.nextInt(10000);
+      print(random);
+      String format=file.path.split("/").last.split(".").last;
+      String imageurl="http://localhost:5000/public/images/"+platenostring+random.toString()+"."+format;
+      setState(() {
+         _isloading=true;
+      });
+     
+      api.sendImage(file, platenostring, random).then((value){
+        if(value.statusCode==200){
+          
+          api.sendInfo(platenostring, _addressline, imageurl).then((value){
+            if(value.statusCode==200){
+               setState(() {
+                _isloading=false;
+              });
+               showErrorDialog(context, size, "Fotoğraf gönderildi","Başarılı");
+              print("");
+            }
+            else{
+              showErrorDialog(context, size, "Hata oluştu","Hata");
+            }
+          });
+        }
+        else{
+              showErrorDialog(context, size, "Hata oluştu","Hata");
+            }
+      });
       }
       else{
-            showErrorDialog(context, size, "Please add location or select image");
+            showErrorDialog(context, size, "Lütfen fotoğraf ve ya konumu ekleyin","Hata");
       }
     }
   
@@ -73,12 +103,12 @@ void getAddress(Position value)async{
         file = File(pickedFile.path);
         showAcceptDialog(context,size);
       } else {
-        print('No image selected.');
+        print('Bir resim seçilmemiş.');
       }
     });
   }
 
-    void showErrorDialog(BuildContext context,Size size,String text){
+    void showErrorDialog(BuildContext context,Size size,String text,String type){
      showGeneralDialog(
         barrierColor: Colors.black.withOpacity(0.5),
         transitionBuilder: (context, a1, a2, widget) {
@@ -90,7 +120,7 @@ void getAddress(Position value)async{
               child: AlertDialog(
                 shape: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(size.height/46.09)),
-                title:  Text("Error",style: TextStyle(fontWeight: FontWeight.w700,fontSize: size.height/52.67),),
+                title:  Text(type,style: TextStyle(fontWeight: FontWeight.w700,fontSize: size.height/52.67),),
                 content:  Text(text,style: TextStyle(fontWeight: FontWeight.w700,fontSize: size.height/52.67),),
                 actions: <Widget>[
                   new FlatButton(
@@ -128,13 +158,13 @@ void getAddress(Position value)async{
               child: AlertDialog(
                 shape: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(size.height/46.09)),
-                title:  Text("Uploading",style: TextStyle(fontWeight: FontWeight.w700,fontSize: size.height/52.67),),
-                content:  Text("Would you like to upload photo",style: TextStyle(fontWeight: FontWeight.w700,fontSize: size.height/52.67),),
+                title:  Text("Yükleniyor",style: TextStyle(fontWeight: FontWeight.w700,fontSize: size.height/52.67),),
+                content:  Text("Bu fotoğrafı yüklemek istiyor musunuz",style: TextStyle(fontWeight: FontWeight.w700,fontSize: size.height/52.67),),
                 actions: <Widget>[
                   new FlatButton(
                     child: Padding(
                       padding:  EdgeInsets.all( size.height/65),
-                      child: new Text('No',style: TextStyle(fontWeight: FontWeight.w700,fontSize: size.height/52.67)),
+                      child: new Text('Hayır',style: TextStyle(fontWeight: FontWeight.w700,fontSize: size.height/52.67)),
                     ),
                     onPressed: () {
                       setState(() {
@@ -147,9 +177,10 @@ void getAddress(Position value)async{
                   new FlatButton(
                     child: Padding(
                       padding:  EdgeInsets.all(size.height/65),
-                      child: new Text('YES',style: TextStyle(fontWeight: FontWeight.w700,fontSize: size.height/52.67)),
+                      child: new Text('Evet',style: TextStyle(fontWeight: FontWeight.w700,fontSize: size.height/52.67)),
                     ),
                     onPressed: () async {
+                     
                       Navigator.pop(context);
                     },
                   )
@@ -197,7 +228,7 @@ void getAddress(Position value)async{
 }
 String plateno(String text){
 if(text.isEmpty||text==null){
-  return "Please put Plate Number";
+  return "Plakayı girin";
 }
 return null;
 }
@@ -208,227 +239,248 @@ return null;
    return Scaffold(
      body: SingleChildScrollView(
             child: Center(
+              child: Stack(
+                children: [
+                  _isloading?
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        
+                            color: Colors.transparent,
+                        child: Center(
+                          child: Container(
+                        
+                            child: CircularProgressIndicator()),
+                        ),
+                      ),
+                    ],
+                  ):
+                  Center(
          child: Form(
-            key:_formKey ,
-             child: Column(
-               mainAxisAlignment: MainAxisAlignment.start,
-             children: [
-               Container(
-                 margin: EdgeInsets.only(top: size.height/20),
-                 width: size.width/1.2,
-                 height: size.height/11,
-                 child: TextFormField(
-                    onSaved: (plateno)=>platenostring=plateno,
-                
-                   style: TextStyle(fontSize: size.height/30),
-                  
-                   decoration: InputDecoration(
-                    labelText: "",
-                    fillColor: Colors.white,
-                    hintText: "Enter plate number",
-                    
-                    focusedBorder: OutlineInputBorder(
-                    
-                    borderRadius: BorderRadius.circular(10.0),
-                    borderSide: BorderSide(
-                      color: Colors.blue,
-                    ),
-                  ),
-                    enabledBorder: OutlineInputBorder(
-                    
-                    borderRadius: BorderRadius.circular(15.0),
-                    borderSide: BorderSide(
-                    
-                      width: 2.0,
-                      
-                    ),
-                  ),
-                   ),
-                   validator: plateno,
-                 ),
-               ),
-                 Row(
-                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  key:_formKey ,
+                   child: Column(
+                     mainAxisAlignment: MainAxisAlignment.start,
                    children: [
-                     Container(
-                     decoration: BoxDecoration(
-                       border: Border.all(),
-                       borderRadius: BorderRadius.circular(15)
-                     ),
-                     margin: EdgeInsets.only(top: size.height/20),
-                     width: size.width/1.8,
-                     height: size.height/11,
-                     child: Center(
-                       child: Text(
+                                                 Container(
+                           decoration: BoxDecoration(
+                             border: Border.all(),
                          
-                         _addressline==""?"Press button to get current Address":_addressline,
-                           style: TextStyle(fontSize: size.height/60,fontWeight: FontWeight.w600),
-                       ),
+                           ),
+                           margin: EdgeInsets.only(top: size.height/20),
+                           width: size.width/1.2,
+                           height: size.height/11,
+                           child: Center(
+                             child: Text(
+                               
+                               file==null?"Fotoğraf seçin":file.path,
+                                 style: TextStyle(fontSize: size.height/60,fontWeight: FontWeight.w600),
+                             ),
+                           ),
                      ),
-               ),
-               InkWell(
-                 onTap: (){
-                  _getLocation().then((value)async{
-                  getAddress(value);
-                });
-                 },
-                              child: Container(
-                     margin: EdgeInsets.only(top: size.height/20),
-                    width: size.width/5,
-                       height: size.height/11,
-                   decoration: BoxDecoration(
-                      color: Colors.blueAccent,
-                      borderRadius: BorderRadius.circular(15)
-                   ),
-                  
-                   child: Icon(Icons.location_on,color: Colors.white,)),
-               )
-                   ],
-                 ),
-                      Container(
-                     decoration: BoxDecoration(
-                       border: Border.all(),
-                       borderRadius: BorderRadius.circular(15)
-                     ),
-                     margin: EdgeInsets.only(top: size.height/20),
-                     width: size.width/1.2,
-                     height: size.height/11,
-                     child: Center(
-                       child: Text(
-                         
-                         file==null?"Select from photo from gallery or camera":file.path,
-                           style: TextStyle(fontSize: size.height/60,fontWeight: FontWeight.w600),
-                       ),
-                     ),
-               ),
-                        Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                 
-                       GestureDetector(
-                  
-                  onTap: (){
-                  getImage(ImageSource.gallery,size);
-                           },
-                        
-                child: Container(
-                       margin: EdgeInsets.only(top: size.height/15),
-                        height: size.height/11,
-                        width: size.width/3.5,
-                        decoration: BoxDecoration(
-                        color: Colors.blueAccent,
-                        borderRadius: BorderRadius.circular(15)
-                        ),
-                        child:Center(child: Text("Gallery",style: TextStyle(fontSize: size.height/45,color: Colors.white),)) ,
-                        ),
-                      ),
-                      GestureDetector(
-                  
-                  onTap: (){
-                          getImage(ImageSource.camera,size);
-                        },
-                        
-                 child: Container(
-                       margin: EdgeInsets.only(top: size.height/15),
-                        height: size.height/11,
-                        width: size.width/3.5,
-                        decoration: BoxDecoration(
-                          color: Colors.blueAccent,
+                                   Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
                        
+                             GestureDetector(
                         
-                          borderRadius: BorderRadius.circular(15)
+                        onTap: (){
+                        getImage(ImageSource.gallery,size);
+                                 },
+                              
+                      child: Container(
+                             margin: EdgeInsets.only(top: size.height/15),
+                              height: size.height/11,
+                              width: size.width/3.5,
+                              decoration: BoxDecoration(
+                              color: Colors.yellowAccent,
+                          
+                              ),
+                              child:Center(child: Text("Galeri",style: TextStyle(fontSize: size.height/45,color: Colors.black),)) ,
+                              ),
+                            ),
+                            GestureDetector(
+                        
+                        onTap: (){
+                                getImage(ImageSource.camera,size);
+                              },
+                              
+                       child: Container(
+                             margin: EdgeInsets.only(top: size.height/15),
+                              height: size.height/11,
+                              width: size.width/3.5,
+                              decoration: BoxDecoration(
+                                color: Colors.yellowAccent,
+                             
+                              
+                        
+                              ),
+                                child:Center(child: Text("Kamera",style: TextStyle(fontSize: size.height/45,color: Colors.black),)) ,
+                              ),
+                            ),
+                           /*  GestureDetector(
+                                onTap: (){
+                                setState(() {
+                                   file=null;
+                                });},
+                       child: Container(
+                              margin: EdgeInsets.only(top: size.height/15),
+                              height: size.height/11,
+                              width: size.width/5,
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent,
+                                borderRadius: BorderRadius.circular(15)
+                              ),
+                                child:Center(child: Icon(Icons.delete,size: size.height/30,color: Colors.black,),)) ,
+                              )*/
+                            /*
+                          */
+                          ],
                         ),
-                          child:Center(child: Text("Camera",style: TextStyle(fontSize: size.height/45,color: Colors.white),)) ,
+                     Container(
+                       margin: EdgeInsets.only(top: size.height/20),
+                       width: size.width/1.2,
+                       height: size.height/11,
+                       child: TextFormField(
+                          onSaved: (plateno)=>platenostring=plateno,
+                      
+                         style: TextStyle(fontSize: size.height/30),
+                        
+                         decoration: InputDecoration(
+                          labelText: "Plakayı girin",
+                          fillColor: Colors.black,
+                       
+                          focusedBorder: OutlineInputBorder(
+                          
+                      
+                          borderSide: BorderSide(
+                            color: Colors.yellow,
+                          ),
                         ),
+                          enabledBorder: OutlineInputBorder(
+                          
+                       
+                          borderSide: BorderSide(
+                          
+                            width: 2.0,
+                            
+                          ),
+                        ),
+                         ),
+                         validator: plateno,
+                       ),
+                     ),
+                       Row(
+                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                         children: [
+                           Container(
+                           decoration: BoxDecoration(
+                             border: Border.all(),
+                        
+                           ),
+                           margin: EdgeInsets.only(top: size.height/20),
+                           width: size.width/1.8,
+                           height: size.height/11,
+                           child: Center(
+                             child: Text(
+                               
+                               _addressline==""?"Şimdiki adresi al":_addressline,
+                                 style: TextStyle(fontSize: size.height/60,fontWeight: FontWeight.w600),
+                             ),
+                           ),
+                     ),
+                     InkWell(
+                       onTap: (){
+                        _getLocation().then((value)async{
+                        getAddress(value);
+                      });
+                       },
+                                    child: Container(
+                           margin: EdgeInsets.only(top: size.height/20),
+                          width: size.width/5,
+                             height: size.height/11,
+                         decoration: BoxDecoration(
+                            color: Colors.yellowAccent,
+                     
+                         ),
+                        
+                         child: Icon(Icons.location_on,color: Colors.black,)),
+                     )
+                         ],
+                       ),
+                
+                     
+                     GestureDetector(
+                       onTap: (){
+                         validForm(size);
+                       },
+                                    child: Container(
+                         margin: EdgeInsets.only(top: size.height/10),
+                         width: size.width/3,
+                         height: size.height/11,
+                         decoration: BoxDecoration(
+                           color: Colors.yellow,
+                        
+                     
+                         ),
+                         child: Center(child: Text("Gönder",style: TextStyle(color: Colors.black,fontSize: size.height/45),)),),
+                     )
+                       /* Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.red,width: 2),
+                        color: Colors.blue,
+                        
+                        borderRadius: BorderRadius.circular(20)
                       ),
-                     /*  GestureDetector(
-                          onTap: (){
-                          setState(() {
-                             file=null;
-                          });},
-                 child: Container(
-                        margin: EdgeInsets.only(top: size.height/15),
-                        height: size.height/11,
-                        width: size.width/5,
-                        decoration: BoxDecoration(
-                          color: Colors.redAccent,
-                          borderRadius: BorderRadius.circular(15)
+                       width: size.width/1.6,
+                       height: size.height/11,
+                       child: Center(
+                         child: Text(
+                           _addressline,
+                               style: TextStyle(fontSize: size.height/50),
+                              
+                         
+                         ),
+                       ),
+                     ),
+                     GestureDetector(
+                       onTap: (){
+                      _getLocation().then((value)async{
+                        getAddress(value);
+                      });
+                       },
+                         child: Container(
+                           width: 50,
+                           height: 50,
+                           child: Center(child: Icon(Icons.location_on,color: Colors.black,size: size.height/30,)),
+                         decoration: BoxDecoration(
+                           color: Colors.blueAccent,
+                           borderRadius: BorderRadius.circular(25),
+                          
+                         ),
+                       
+                       ),
+                     ),
+                          ],
                         ),
-                          child:Center(child: Icon(Icons.delete,size: size.height/30,color: Colors.white,),)) ,
-                        )*/
-                      /*
-                    */
-                    ],
-                  ),
-               
-               GestureDetector(
-                 onTap: (){
-                   validForm(size);
-                 },
-                              child: Container(
-                   margin: EdgeInsets.only(top: size.height/10),
-                   width: size.width/3,
-                   height: size.height/11,
-                   decoration: BoxDecoration(
-                     color: Colors.blue,
-                  
-                     borderRadius: BorderRadius.circular(15)
-                   ),
-                   child: Center(child: Text("Send information",style: TextStyle(color: Colors.white,fontSize: size.height/45),)),),
-               )
-                 /* Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.red,width: 2),
-                  color: Colors.blue,
-                  
-                  borderRadius: BorderRadius.circular(20)
-                ),
-                 width: size.width/1.6,
-                 height: size.height/11,
-                 child: Center(
-                   child: Text(
-                     _addressline,
-                         style: TextStyle(fontSize: size.height/50),
-                        
-                   
-                   ),
-                 ),
-               ),
-               GestureDetector(
-                 onTap: (){
-                _getLocation().then((value)async{
-                  getAddress(value);
-                });
-                 },
-                   child: Container(
-                     width: 50,
-                     height: 50,
-                     child: Center(child: Icon(Icons.location_on,color: Colors.white,size: size.height/30,)),
-                   decoration: BoxDecoration(
-                     color: Colors.blueAccent,
-                     borderRadius: BorderRadius.circular(25),
-                    
-                   ),
-                 
-                 ),
-               ),
-                    ],
-                  ),
            */
-               
-             /* RaisedButton(
-                 child: Text("Send data"),
-                 onPressed: (){
-               
-                 
-               })*/
-             ],
+                     
+                   /* RaisedButton(
+                       child: Text("Send data"),
+                       onPressed: (){
+                     
+                       
+                     })*/
+                   ],
            ),
          )
        ),
+                ],
+              ),
+            ),
      ),
      /*floatingActionButton: FloatingActionButton(onPressed: (){
        getImage();
